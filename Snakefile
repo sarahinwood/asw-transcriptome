@@ -57,9 +57,9 @@ bbduk_adapters = '/adapters.fa'
 
 #containers
 bbduk_container = 'shub://TomHarrop/singularity-containers:bbmap_38.00'
-busco_container = 'shub://TomHarrop/singularity-containers:busco_3.0.2'
+busco_container = 'docker://ezlabgva/busco:v4.0.2_cv1'
 tidyverse_container = 'shub://TomHarrop/singularity-containers:r_3.5.0'
-trinity_container = 'shub://TomHarrop/singularity-containers:trinity_2.8.4'
+trinity_container = 'docker://trinityrnaseq/trinityrnaseq'
 trinotate_container = 'shub://TomHarrop/trinotate_pipeline:v0.0.12'
 
 #########
@@ -78,13 +78,14 @@ all_samples = sorted(set(sample_key['Sample_name']))
 
 rule target:
     input:
-        expand('output/busco/run_{filter}/full_table_{filter}.tsv',
+        expand('output/busco/{filter}/run_endopterygota_odb10/full_table.tsv',
                 filter=['expression', 'length']),
-        #'output/fastqc',
+        'output/fastqc',
         'output/trinity_stats/stats.txt',
         'output/trinity_stats/xn50.out.txt',
         'output/trinity_stats/bowtie2_alignment_stats.txt',
-        'output/trinity_stats/length_fil_bowtie2_alignment_stats.txt',
+        expand('output/trinity_stats/isoforms_by_{filter}_bowtie2_alignment_stats.txt',
+                filter=['expression', 'length']),
         'output/transrate/Trinity/contigs.csv',
         'output/trinotate/trinotate/Trinotate.sqlite',
         'output/recip_blast/nr_blastx/nr_blastx.outfmt3'
@@ -228,7 +229,7 @@ rule busco:
         filtered_fasta = 'output/trinity_filtered_isoforms/isoforms_by_{filter}.fasta',
         lineage = 'data/endopterygota_odb9'
     output:
-        'output/busco/run_{filter}/full_table_{filter}.tsv'
+        'output/busco/{filter}/run_endopterygota_odb10/full_table.tsv'
     log:
         str(pathlib2.Path(resolve_path('output/logs/'),
                             'busco_{filter}.log'))
@@ -242,14 +243,13 @@ rule busco:
         20
     shell:
         'cd {params.wd} || exit 1 ; '
-        'singularity exec singularity/busco_v4.0.2_cv1.sif '
         'busco '
         '--force '
         '--in {params.filtered_fasta} '
         '--out {wildcards.filter} '
-        '--lineage {params.lineage} '
+        '--lineage endopterygota_odb10 '
         '--cpu {threads} '
-        '--species tribolium2012 '
+        '--augustus_species tribolium '
         '--mode transcriptome '
         '-f '
         '&> {log} '
@@ -280,16 +280,17 @@ rule transrate:
         '--loglevel error '
         '&> {log}'
 
-##run on length fil. to see whether this decreases multimapping
-rule lenth_fil_bowtie2_alignment_stats:
+##run on length & expression fil. to see whether this decreases multimapping
+##can also use to justify Salmon mapping onto length-filtered
+rule fil_bowtie2_alignment_stats:
     input:
-        transcriptome = 'output/trinity_filtered_isoforms/isoforms_by_length.fasta',
+        transcriptome = 'output/trinity_filtered_isoforms/isoforms_by_{filter}.fasta',
         left = expand('output/bbduk_trim/{sample}_r1.fq.gz', sample=all_samples),
         right = expand('output/bbduk_trim/{sample}_r2.fq.gz', sample=all_samples)
     output:
-        alignment_stats = 'output/trinity_stats/length_fil_bowtie2_alignment_stats.txt'
+        alignment_stats = 'output/trinity_stats/isoforms_by_{filter}_bowtie2_alignment_stats.txt'
     params:
-        index_basename = 'output/trinity_stats/isoforms_by_length.fasta.index',
+        index_basename = 'output/trinity_stats/isoforms_by_{filter}.fasta.index',
         left = lambda wildcards, input: ','.join(sorted(set(input.left))),
         right = lambda wildcards, input: ','.join(sorted(set(input.right)))
     threads:
