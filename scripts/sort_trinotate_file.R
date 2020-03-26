@@ -16,4 +16,10 @@ setorder(trinotate.sorted, `#gene_id`, `blastx_evalue`, na.last=TRUE)
 ####extract result with lowest evalue for each gene - what if multiple rows with lowest min?
 trinotate.min.eval <- trinotate.sorted[,.SD[which.min(blastx_evalue)], by=`#gene_id`]
 ##write csv with most sig hit for each gene with annotation
-fwrite(trinotate.min.eval, "output/trinotate/trinotate/most_sig_transcript_blastx_hit_for_each_gene.csv")
+fwrite(trinotate.min.eval, "output/trinotate/trinotate/sorted/most_sig_transcript_blastx_hit_for_each_gene.csv")
+
+##filter out gene ids for unannotated genes
+genes_no_annot <- trinotate.report[is.na(sprot_Top_BLASTX_hit),]
+##list of unique gene ids from table of genes with no blastx annot
+list_ids_no_annot <- list(unique(genes_no_annot$`#gene_id`))
+fwrite(list_ids_no_annot, "output/trinotate/trinotate/sorted/ids_genes_no_blastx_annot.txt")

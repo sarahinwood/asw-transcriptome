@@ -1,9 +1,9 @@
 library(data.table)
 library(ggplot2)
 
-annotation.report <- fread('output/trinotate/trinotate/trinotate_annotation_report.txt', na.strings = ".")
+trinotate.min.eval <- fread('output/trinotate/trinotate/most_sig_transcript_blastx_hit_for_each_gene.csv', na.strings = ".")
 
-blastx.results <- annotation.report[!is.na(sprot_Top_BLASTX_hit),.(sprot_Top_BLASTX_hit, `#gene_id`)]
+blastx.results <- trinotate.min.eval[!is.na(sprot_Top_BLASTX_hit),.(sprot_Top_BLASTX_hit, `#gene_id`)]
 first.blastx.hit <- blastx.results[,tstrsplit(sprot_Top_BLASTX_hit, "`", fixed = TRUE, keep=1), by = `#gene_id`]
 split.first.blastx <- first.blastx.hit[,tstrsplit(V1, "^", fixed=TRUE), by=`#gene_id`]
 genes.per.taxa <- split.first.blastx[,length(unique(`#gene_id`)), by=V7]
@@ -18,20 +18,17 @@ ggplot(plot.viral.taxa, aes(x=reorder(V7, -V1), y=V1))+
   geom_col()+xlab("Viral Genera")+ylab("Number of BlastX Annotations")
 
 ##get list of all viral genes and annots to later pull out viral transcript sequences
-trinotate_virus_annots <- dplyr::filter(annotation.report, grepl('virus', sprot_Top_BLASTX_hit))
-fwrite(trinotate_virus_annots, "output/trinotate/viral/viral_annots_trinotate.csv")
-##remove hits from transposons - look into later
-viral_not_transposon <- data.table(dplyr::filter(trinotate_virus_annots, !grepl('transposon', sprot_Top_BLASTX_hit)))
-fwrite(viral_not_transposon, "output/trinotate/viral/viral_annots.csv")
+trinotate_virus_annots <- dplyr::filter(trinotate.min.eval, grepl('Viruses', sprot_Top_BLASTX_hit))
+fwrite(trinotate_virus_annots, "output/trinotate/viral/viral_NOT_transposon_annots.csv")
 ##write list of viral transcript IDs to pull out of fasta file
-viral_transcripts <- viral_not_transposon[,transcript_id]
+viral_transcripts <- trinotate_virus_annots[,2]
 fwrite(list(viral_transcripts), "output/trinotate/viral/viral_transcript_ids.txt")
 ##^^wont include manual hits e.g. bro genes
 
 ##virus transposon transcripts
 transposon <- dplyr::filter(trinotate_virus_annots, grepl('transposon', sprot_Top_BLASTX_hit))
 
-##sort out viral annots
+##unnecessary now?##sort out viral annots
 dedup_virus_annots <- fread("output/trinotate/viral/dedup_viral_annots_trinotate.csv")
 viral_blastx_annots <- dedup_virus_annots[,tstrsplit(sprot_Top_BLASTX_hit, "`", fixed=TRUE, keep=1)]
 viral_blastx_table <- viral_blastx_annots[,tstrsplit(V1, "^", fixed=TRUE)]

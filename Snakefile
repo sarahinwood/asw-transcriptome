@@ -9,6 +9,7 @@ import snap
 # FUNCTIONS #
 #############
 
+##needed to get BUSCO running in new folder
 def resolve_path(x):
     return(str(pathlib2.Path(x).resolve(strict=False)))
 
@@ -59,6 +60,7 @@ bbduk_container = 'shub://TomHarrop/singularity-containers:bbmap_38.00'
 busco_container = 'shub://TomHarrop/singularity-containers:busco_3.0.2'
 tidyverse_container = 'shub://TomHarrop/singularity-containers:r_3.5.0'
 trinity_container = 'shub://TomHarrop/singularity-containers:trinity_2.8.4'
+trinotate_container = 'shub://TomHarrop/trinotate_pipeline:v0.0.12'
 
 #########
 # SETUP #
@@ -78,10 +80,11 @@ rule target:
     input:
         expand('output/busco/run_{filter}/full_table_{filter}.tsv',
                 filter=['expression', 'length']),
-        'output/fastqc',
+        #'output/fastqc',
         'output/trinity_stats/stats.txt',
         'output/trinity_stats/xn50.out.txt',
         'output/trinity_stats/bowtie2_alignment_stats.txt',
+        'output/trinity_stats/length_fil_bowtie2_alignment_stats.txt',
         'output/transrate/Trinity/contigs.csv',
         'output/trinotate/trinotate/Trinotate.sqlite',
         'output/recip_blast/nr_blastx/nr_blastx.outfmt3'
@@ -190,12 +193,13 @@ rule filter_unann_transcripts:
 ##Transcriptome assembled & annotated##
 #######################################
 
+##annotate transcriptome using separate Snakemake workflow
 rule trinotate:
     input:
         fasta = 'output/trinity/Trinity.fasta',
-        blastdb = 'bin/trinotate/db/uniprot_sprot.pep',
-        hmmerdb = 'bin/trinotate/db/Pfam-A.hmm',
-        sqldb = 'bin/trinotate/db/Trinotate.sqlite'
+        blastdb = 'bin/trinotate_db/uniprot_sprot.pep',
+        hmmerdb = 'bin/trinotate_db/Pfam-A.hmm',
+        sqldb = 'bin/trinotate_db/Trinotate.sqlite'
     output:
         'output/trinotate/trinotate/trinotate_annotation_report.txt',
         'output/trinotate/trinotate/Trinotate.sqlite'
@@ -205,6 +209,8 @@ rule trinotate:
         20
     log:
         'output/logs/trinotate.log'
+    singularity:
+        trinotate_container
     shell:
         'trinotate_pipeline '
         '--trinity_fasta {input.fasta} '
@@ -215,6 +221,8 @@ rule trinotate:
         '--threads {threads} '
         '&> {log}'
 
+##busco run on both length-filtered (fasta with longest isoform per gene) and expression-filtered (fasta with most highly expressed isoform per gene) separately
+##running on raw Trinity.fasta gives high duplication due to each gene having multiple isoforms
 rule busco:
     input:
         filtered_fasta = 'output/trinity_filtered_isoforms/isoforms_by_{filter}.fasta',
@@ -228,13 +236,14 @@ rule busco:
         wd = 'output/busco',
         filtered_fasta = lambda wildcards, input: resolve_path(input.filtered_fasta),
         lineage = lambda wildcards, input: resolve_path(input.lineage)
-    threads:
-        20
     singularity:
         busco_container
+    threads:
+        20
     shell:
         'cd {params.wd} || exit 1 ; '
-        'run_BUSCO.py '
+        'singularity exec singularity/busco_v4.0.2_cv1.sif '
+        'busco '
         '--force '
         '--in {params.filtered_fasta} '
         '--out {wildcards.filter} '
@@ -245,6 +254,7 @@ rule busco:
         '-f '
         '&> {log} '
 
+##different assembly quality metrics - less useful, don't worry about
 rule transrate:
     input:
         transcriptome = 'output/trinity/Trinity.fasta',
@@ -270,6 +280,36 @@ rule transrate:
         '--loglevel error '
         '&> {log}'
 
+##run on length fil. to see whether this decreases multimapping
+rule lenth_fil_bowtie2_alignment_stats:
+    input:
+        transcriptome = 'output/trinity_filtered_isoforms/isoforms_by_length.fasta',
+        left = expand('output/bbduk_trim/{sample}_r1.fq.gz', sample=all_samples),
+        right = expand('output/bbduk_trim/{sample}_r2.fq.gz', sample=all_samples)
+    output:
+        alignment_stats = 'output/trinity_stats/length_fil_bowtie2_alignment_stats.txt'
+    params:
+        index_basename = 'output/trinity_stats/isoforms_by_length.fasta.index',
+        left = lambda wildcards, input: ','.join(sorted(set(input.left))),
+        right = lambda wildcards, input: ','.join(sorted(set(input.right)))
+    threads:
+        50
+    singularity:
+        trinity_container
+    shell:
+        'bowtie2-build '
+        '{input.transcriptome} '
+        '{params.index_basename} || exit 1 ; '
+        'bowtie2 '
+        '-p 10 '
+        '-q '
+        '--threads {threads} '
+        '-x {params.index_basename} '
+        '-1 {params.left} '
+        '-2 {params.right} '
+        '1> /dev/null 2> {output.alignment_stats}'
+
+##basic read mapping statistics - read representation in assembly
 rule bowtie2_alignment_stats:
     input:
         transcriptome = 'output/trinity/Trinity.fasta',
@@ -298,6 +338,7 @@ rule bowtie2_alignment_stats:
         '-2 {params.right} '
         '1> /dev/null 2> {output.alignment_stats}'
 
+##generate fasta files with either longest isoform per gene only OR most highly expressed isoform per gene
 rule filter_trinity_isoforms:
     input:
         transcriptome = 'output/trinity/Trinity.fasta',
@@ -316,6 +357,7 @@ rule filter_trinity_isoforms:
         'out={output.sorted_fasta} ' 
         '&> {log}'
 
+##sort isoforms of each transcript based of length or expression level
 rule sort_isoforms_r:
     input:
         abundance = 'output/trinity_abundance/RSEM.isoforms.results'
@@ -329,6 +371,7 @@ rule sort_isoforms_r:
     script:
         'scripts/sort_isoforms.R'
 
+##generate exn50 stat - transcriptome equivalent of n50
 rule ExN50_stats:
     input:
         abundance = 'output/trinity_abundance/RSEM.isoform.TPM.not_cross_norm',
@@ -346,6 +389,7 @@ rule ExN50_stats:
         '>{output.ExN50_stats} '
         '2>{log}'
 
+##generate basic assembly stats
 rule trinity_stats:
     input:
         transcriptome = 'output/trinity/Trinity.fasta'
@@ -361,6 +405,7 @@ rule trinity_stats:
         '>{output.stats} '
         '2>{log}'
 
+##generate info for downstream analyses
 rule trinity_abundance_to_matrix:
     input:
         gt_map = 'output/trinity/Trinity.fasta.gene_trans_map',
@@ -383,6 +428,7 @@ rule trinity_abundance_to_matrix:
         '{input.abundance} '
         '&> {log}'
 
+##generate info for downstream analyses
 rule trinity_abundance:
     input:
         transcripts = 'output/trinity/Trinity.fasta',
@@ -415,6 +461,7 @@ rule trinity_abundance:
         '--right {params.right} '
         '&> {log}'
 
+##assembly
 rule Trinity:
     input:
         left = expand('output/bbmerge/{sample}_all_r1.fq.gz', sample=all_samples),
@@ -443,6 +490,7 @@ rule Trinity:
         '--seqType fq '
         '&> {log}'
 
+##merge the merged reads and unmerged_r1 reads files for Trinity
 rule merge_all_r1_reads:
     input:
         r1 = 'output/bbmerge/{sample}_unmerged_r1.fq.gz',
@@ -452,6 +500,7 @@ rule merge_all_r1_reads:
     shell:
         'cat {input.r1} {input.merged} > {output.joined}'
 
+##merge overlapping reads (improves assembly quality)
 rule bbmerge:
     input:
         r1 = 'output/bbduk_trim/{sample}_r1.fq.gz',
@@ -492,6 +541,7 @@ rule fastqc:
         'mkdir -p {output} ; '
         'fastqc --outdir {output} {input}'
 
+##trim adapters and low quality seq.
 rule bbduk_trim:
     input:
         r1 = 'output/joined/{sample}_r1.fq.gz',
@@ -517,6 +567,7 @@ rule bbduk_trim:
         'ktrim=r k=23 mink=11 hdist=1 tpe tbo qtrim=r trimq=15 '
         '&> {log}'
 
+##cat together any sample files split across multiple lanes
 rule cat_reads:
     input:
         unpack(sample_name_to_fastq)
