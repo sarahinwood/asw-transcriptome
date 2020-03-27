@@ -80,13 +80,14 @@ rule target:
     input:
         expand('output/busco/{filter}/run_endopterygota_odb10/full_table.tsv',
                 filter=['expression', 'length']),
+        'output/busco/short_summaries/busco_figure.png',
         'output/fastqc',
         'output/trinity_stats/stats.txt',
         'output/trinity_stats/xn50.out.txt',
         'output/trinity_stats/bowtie2_alignment_stats.txt',
         expand('output/trinity_stats/isoforms_by_{filter}_bowtie2_alignment_stats.txt',
                 filter=['expression', 'length']),
-        'output/transrate/Trinity/contigs.csv',
+        #'output/transrate/Trinity/contigs.csv',
         'output/trinotate/trinotate/Trinotate.sqlite',
         'output/recip_blast/nr_blastx/nr_blastx.outfmt3'
 
@@ -149,7 +150,7 @@ rule filter_transcript_ids:
 
 rule recip_blastx_viral:
     input:
-        unann_transcripts = 'output/trinotate/trinotate/blastx_unann_transcripts.fasta',
+        unann_transcripts = 'output/trinotate/sorted/unann_transcripts.fasta',
         gi_list = 'data/gi_lists/virus.gi.txt'
     output:
         blastx_res = 'output/recip_blast/viral_blastx/transcriptome_viral_blastx.outfmt3'
@@ -172,9 +173,9 @@ rule recip_blastx_viral:
 rule filter_unann_transcripts:
     input:
         length_filtered_transcriptome = 'output/trinity_filtered_isoforms/isoforms_by_length.fasta',
-        unann_transcript_ids = 'output/trinotate/trinotate/ids_genes_no_blastx_annot.txt'
+        unann_transcript_ids = 'output/trinotate/sorted/ids_genes_no_blastx_annot.txt'
     output:
-        unann_transcripts = 'output/trinotate/trinotate/blastx_unann_transcripts.fasta'
+        unann_transcripts = 'output/trinotate/sorted/unann_transcripts.fasta'
     threads:
         50
     singularity:
@@ -189,6 +190,19 @@ rule filter_unann_transcripts:
         'substring=name '
         'out={output.unann_transcripts} '
         '&> {log}'
+
+rule sort_trinotate_annots:
+    input:
+        trinotate_report = 'output/trinotate/trinotate/trinotate_annotation_report.txt'
+    output:
+        unann_transcript_ids = 'output/trinotate/sorted/ids_genes_no_blastx_annot.txt',
+        best_annot_per_gene = 'output/trinotate/sorted/best_annot_per_gene.csv'
+    singularity:
+        tidyverse_container
+    log:
+        'output/logs/sort_trinotate_annots.log'
+    script:
+        'scripts/sort_trinotate_annots.R'    
 
 #######################################
 ##Transcriptome assembled & annotated##
@@ -222,6 +236,25 @@ rule trinotate:
         '--threads {threads} '
         '&> {log}'
 
+##make plot of busco summaries
+rule plot_busco:
+    input:
+        ss = expand('output/busco/{filter}/short_summary.specific.endopterygota_odb10.{filter}.txt',
+            filter=['expression', 'length'])
+    output:
+        busco_plot = 'output/busco/short_summaries/busco_figure.png'
+    params:
+        ss_dir = 'output/busco/short_summaries'
+    singularity:
+        busco_container
+    threads:
+        20
+    shell:
+        'mkdir {params.ss_dir} & '
+        'cp {input.ss} {params.ss_dir}/ & '
+        'python3 /busco/scripts/generate_plot.py '
+        '-wd {params.ss_dir}'
+
 ##busco run on both length-filtered (fasta with longest isoform per gene) and expression-filtered (fasta with most highly expressed isoform per gene) separately
 ##running on raw Trinity.fasta gives high duplication due to each gene having multiple isoforms
 rule busco:
@@ -254,7 +287,8 @@ rule busco:
         '-f '
         '&> {log} '
 
-##different assembly quality metrics - less useful, don't worry about
+##different assembly quality metrics - don't worry about
+##doesn't seem to be actively maintained anymore
 rule transrate:
     input:
         transcriptome = 'output/trinity/Trinity.fasta',

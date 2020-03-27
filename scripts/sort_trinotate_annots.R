@@ -1,6 +1,26 @@
+#!/usr/bin/env Rscript
+
+#######
+# LOG #
+#######
+
+log <- file(snakemake@log[[1]], open = "wt")
+sink(log, type = "message")
+sink(log, append = TRUE, type = "output")
+
+#############
+# LIBRARIES #
+#############
+
 library(data.table)
 
-trinotate.report <- fread('output/trinotate/trinotate/trinotate_annotation_report.txt', na.strings = ".")
+###########
+# GLOBALS #
+###########
+
+trinotate_file = <- snakemake@input[["trinotate_report"]]
+
+trinotate.report <- fread(trinotate_file)
 ##split to keep first blastx hit only
 trinotate.sorted <- copy(trinotate.report)
 trinotate.sorted$blastx_evalue <- tstrsplit(trinotate.report$sprot_Top_BLASTX_hit, "`", fixed=TRUE, keep=c(1))
@@ -16,10 +36,10 @@ setorder(trinotate.sorted, `#gene_id`, `blastx_evalue`, na.last=TRUE)
 ####extract result with lowest evalue for each gene - what if multiple rows with lowest min?
 trinotate.min.eval <- trinotate.sorted[,.SD[which.min(blastx_evalue)], by=`#gene_id`]
 ##write csv with most sig hit for each gene with annotation
-fwrite(trinotate.min.eval, "output/trinotate/trinotate/sorted/best_annot_per_gene.csv")
+fwrite(trinotate.min.eval, snakemake@output[["best_annot_per_gene"]])
 
 ##filter out gene ids for unannotated genes
 genes_no_annot <- trinotate.report[is.na(sprot_Top_BLASTX_hit),]
 ##list of unique gene ids from table of genes with no blastx annot
 list_ids_no_annot <- list(unique(genes_no_annot$`#gene_id`))
-fwrite(list_ids_no_annot, "output/trinotate/trinotate/sorted/ids_genes_no_blastx_annot.txt")
+fwrite(list_ids_no_annot, snakemake@output[["unann_transcript_ids"]])

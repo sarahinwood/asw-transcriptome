@@ -2,11 +2,9 @@ library(readr)
 library(dplyr)
 library(ggplot2)
 
-##output/busco/(.+)/run_endopterygota_odb10/full_table.tsv
-
 busco_output <- list.files("output/busco",
                            recursive = TRUE,
-                           pattern = "full_table.tsv",
+                           pattern = "short_summary.txt",
                            full.names = TRUE)
 
 busco_results_list <- lapply(busco_output,
