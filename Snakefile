@@ -193,10 +193,12 @@ rule filter_unann_transcripts:
 
 rule sort_trinotate_annots:
     input:
-        trinotate_report = 'output/trinotate/trinotate/trinotate_annotation_report.txt'
+        trinotate_report = 'output/trinotate/trinotate/trinotate_annotation_report.txt',
+        longest_isoform_ids = 'output/trinity_filtered_isoforms/isoforms_by_length.txt'
     output:
         unann_transcript_ids = 'output/trinotate/sorted/ids_genes_no_blastx_annot.txt',
-        best_annot_per_gene = 'output/trinotate/sorted/best_annot_per_gene.csv'
+        best_annot_per_gene = 'output/trinotate/sorted/best_annot_per_gene.csv',
+        longest_iso_annots = 'output/trinotate/sorted/longest_isoform_annots.csv'
     singularity:
         tidyverse_container
     log:

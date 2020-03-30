@@ -19,8 +19,10 @@ library(data.table)
 ###########
 
 trinotate_file = <- snakemake@input[["trinotate_report"]]
+longest_isoform_id_list <- snakemake@input[["longest_isoform_ids"]]
 
 trinotate.report <- fread(trinotate_file)
+
 ##split to keep first blastx hit only
 trinotate.sorted <- copy(trinotate.report)
 trinotate.sorted$blastx_evalue <- tstrsplit(trinotate.report$sprot_Top_BLASTX_hit, "`", fixed=TRUE, keep=c(1))
@@ -37,6 +39,11 @@ setorder(trinotate.sorted, `#gene_id`, `blastx_evalue`, na.last=TRUE)
 trinotate.min.eval <- trinotate.sorted[,.SD[which.min(blastx_evalue)], by=`#gene_id`]
 ##write csv with most sig hit for each gene with annotation
 fwrite(trinotate.min.eval, snakemake@output[["best_annot_per_gene"]])
+
+##split to keep annot for longest isoform:
+longest_isoform_ids <- fread(longest_isoform_id_list, header=FALSE)
+annots_longest_isoform <- merge(trinotate.report, longest_isoform_ids, by.x="transcript_id", by.y="V1", all.x=FALSE, all.y=TRUE)
+fwrite(annots_longest_isoform, snakemake@output[["longest_iso_annots"]])
 
 ##filter out gene ids for unannotated genes
 genes_no_annot <- trinotate.report[is.na(sprot_Top_BLASTX_hit),]
