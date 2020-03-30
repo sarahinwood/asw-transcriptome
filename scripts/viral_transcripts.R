@@ -1,13 +1,13 @@
 library(data.table)
 library(ggplot2)
 
-trinotate.min.eval <- fread('output/trinotate/trinotate/most_sig_transcript_blastx_hit_for_each_gene.csv', na.strings = ".")
+trinotate.min.eval <- fread('output/trinotate/sorted/best_annot_per_gene.csv', na.strings = ".")
 
 blastx.results <- trinotate.min.eval[!is.na(sprot_Top_BLASTX_hit),.(sprot_Top_BLASTX_hit, `#gene_id`)]
 first.blastx.hit <- blastx.results[,tstrsplit(sprot_Top_BLASTX_hit, "`", fixed = TRUE, keep=1), by = `#gene_id`]
 split.first.blastx <- first.blastx.hit[,tstrsplit(V1, "^", fixed=TRUE), by=`#gene_id`]
 genes.per.taxa <- split.first.blastx[,length(unique(`#gene_id`)), by=V7]
-virus_taxa <- dplyr::filter(genes.per.taxa, grepl('viruses', V7))
+virus_taxa <- dplyr::filter(genes.per.taxa, grepl('Viruses', V7))
 fwrite(virus_taxa, "output/trinotate/viral/genes_per_taxa_viral.csv")
 
 ##plot viral taxa annots
@@ -19,7 +19,7 @@ ggplot(plot.viral.taxa, aes(x=reorder(V7, -V1), y=V1))+
 
 ##get list of all viral genes and annots to later pull out viral transcript sequences
 trinotate_virus_annots <- dplyr::filter(trinotate.min.eval, grepl('Viruses', sprot_Top_BLASTX_hit))
-fwrite(trinotate_virus_annots, "output/trinotate/viral/viral_NOT_transposon_annots.csv")
+fwrite(trinotate_virus_annots, "output/trinotate/viral/viral_annots.csv")
 ##write list of viral transcript IDs to pull out of fasta file
 viral_transcripts <- trinotate_virus_annots[,2]
 fwrite(list(viral_transcripts), "output/trinotate/viral/viral_transcript_ids.txt")

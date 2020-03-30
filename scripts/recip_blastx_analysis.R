@@ -16,15 +16,11 @@ transcript_id_annot <- asw_virus[,c(1,13)]
 fwrite(transcript_id_annot, "output/recip_blast/nr_blastx/viral_transcripts_annots.csv")
 
 ##sort of virus annots from trinotate WITHOUT transposon hits
-sorted_trinotate <- fread('output/trinotate/trinotate/most_sig_transcript_blastx_hit_for_each_gene.csv')
-sorted_trinotate_virus_annots <- dplyr::filter(sorted_trinotate, grepl('Viruses', sprot_Top_BLASTX_hit))
-##remove hits from transposons - look into later
-fwrite(sorted_trinotate_virus_annots, "output/trinotate/sorted_viral/viral_annots.csv")
-
+sorted_trinotate <- fread('output/trinotate/viral/viral_annots.csv')
 ##sum of each viral taxa
 blastx.results <- sorted_trinotate[!is.na(sprot_Top_BLASTX_hit),.(sprot_Top_BLASTX_hit, `#gene_id`)]
 first.blastx.hit <- blastx.results[,tstrsplit(sprot_Top_BLASTX_hit, "`", fixed = TRUE, keep=1), by = `#gene_id`]
 split.first.blastx <- first.blastx.hit[,tstrsplit(V1, "^", fixed=TRUE), by=`#gene_id`]
 genes.per.taxa <- split.first.blastx[,length(unique(`#gene_id`)), by=V7]
-virus_taxa <- dplyr::filter(genes.per.taxa, grepl('viruses', V7))
-fwrite(virus_taxa, "output/trinotate/sorted_viral/sorted_trinotate_viral_taxa.csv")
+virus_taxa <- dplyr::filter(genes.per.taxa, grepl('Viruses', V7))
+fwrite(virus_taxa, "output/trinotate/viral/sorted_trinotate_viral_taxa.csv")
