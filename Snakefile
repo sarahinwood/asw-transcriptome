@@ -418,7 +418,7 @@ rule ExN50_stats:
     log:
         'output/logs/xn50.err.txt'
     shell:
-        'contig_ExN50_statistic.pl '
+        '/usr/local/bin/trinityrnaseq/util/misc/contig_ExN50_statistic.pl '
         '{input.abundance} '
         '{input.transcriptome} '
         '>{output.ExN50_stats} '
@@ -435,7 +435,7 @@ rule trinity_stats:
     log:
         'output/logs/trinity_stats.log'
     shell:
-        'TrinityStats.pl '
+        '/usr/local/bin/trinityrnaseq/util/TrinityStats.pl '
         '{input.transcriptome} '
         '>{output.stats} '
         '2>{log}'
@@ -455,7 +455,7 @@ rule trinity_abundance_to_matrix:
     log:
         'output/logs/abundance_estimates_to_matrix.log'
     shell:
-        'abundance_estimates_to_matrix.pl '
+        '/usr/local/bin/trinityrnaseq/util/abundance_estimates_to_matrix.pl '
         '--est_method RSEM '
         '--cross_sample_norm none '
         '--out_prefix {params.prefix} '
@@ -482,7 +482,7 @@ rule trinity_abundance:
         left = lambda wildcards, input: ','.join(sorted(set(input.left))),
         right = lambda wildcards, input: ','.join(sorted(set(input.right)))
     shell:
-        'align_and_estimate_abundance.pl '
+        '/usr/local/bin/trinityrnaseq/util/align_and_estimate_abundance.pl '
         '--transcripts {input.transcripts} '
         '--seqType fq '
         '--est_method RSEM '

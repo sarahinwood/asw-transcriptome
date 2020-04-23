@@ -18,10 +18,10 @@ library(data.table)
 # GLOBALS #
 ###########
 
-trinotate_file = <- snakemake@input[["trinotate_report"]]
+trinotate_file <- snakemake@input[["trinotate_report"]]
 longest_isoform_id_list <- snakemake@input[["longest_isoform_ids"]]
 
-trinotate.report <- fread(trinotate_file)
+trinotate.report <- fread(trinotate_file, na.strings=".")
 
 ##split to keep first blastx hit only
 trinotate.sorted <- copy(trinotate.report)
