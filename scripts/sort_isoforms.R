@@ -42,6 +42,11 @@ fwrite(isoform.list[isoforms_by_length,list(transcript_id)],
 isoform.list[,hist(length, breaks = 100, xlim=c(0, +5000),
 	main = "Transcript Lengths in New ASW Transcriptome Assembly",
 	xlab = "Transcript Length (bp)")]
+
+ggplot(isoform.list, aes(x=length))+
+  geom_histogram(alpha=0.5, fill="#440154FF", colour="#440154FF", bins=c(40))+
+  xlim(c(0, 5000))+theme_classic()+xlab("Transcript Length (bp)")+ylab("Count")
+
 sum(isoform.list$length>500)
 
 # write log
