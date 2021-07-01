@@ -13,6 +13,7 @@ sink(log, append = TRUE, type = "output")
 #############
 
 library(data.table)
+library(ggplot2)
 
 ###########
 # GLOBALS #
@@ -44,10 +45,13 @@ isoform.list[,hist(length, breaks = 100, xlim=c(0, +5000),
 	xlab = "Transcript Length (bp)")]
 
 ggplot(isoform.list, aes(x=length))+
-  geom_histogram(alpha=0.5, fill="#440154FF", colour="#440154FF", bins=c(40))+
-  xlim(c(0, 5000))+theme_classic()+xlab("Transcript Length (bp)")+ylab("Count")
+  geom_histogram(alpha=0.8, fill="#440154FF", colour="#440154FF", binwidth=50, boundary=0)+
+  scale_x_continuous(limits=c(0,3000))+
+  xlab("Transcript Length (bp)")+
+  ylab("Number of transcripts")+
+  theme_bw()
 
-sum(isoform.list$length>500)
+(sum(isoform.list$length>500))/(length(isoform.list$transcript_id))
 
 # write log
 sessionInfo()

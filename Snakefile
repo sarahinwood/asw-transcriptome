@@ -52,8 +52,6 @@ rule target:
         'output/trinity_stats/bowtie2_alignment_stats.txt',
         expand('output/trinity_stats/isoforms_by_{filter}_bowtie2_alignment_stats.txt',
                 filter=['expression', 'length']),
-        #'output/transrate/Trinity/contigs.csv',
-        'output/trinotate/trinotate/Trinotate.sqlite',
         'output/recip_blast/nr_blastx/nr_blastx.outfmt3'
 
 ################################################################
@@ -66,7 +64,7 @@ rule recip_nr_blastx:
     output:
         blastx_res = 'output/recip_blast/nr_blastx/nr_blastx.outfmt3'
     params:
-        blast_db = 'bin/db/blastdb/nr/nr'
+        blast_db = 'bin/db/blast_db/nr/nr'
     threads:
         50
     log:
@@ -77,7 +75,8 @@ rule recip_nr_blastx:
         '-db {params.blast_db} '
         '-num_threads {threads} '
         '-evalue 1e-05 '
-        '-outfmt "6 std salltitles" > {output.blastx_res} '
+        '-max_target_seqs 1 '
+        '-outfmt "6 std staxids salltitles" > {output.blastx_res} '
         '2> {log}'
 
 rule filter_pot_viral_transcripts:
@@ -116,11 +115,11 @@ rule filter_transcript_ids:
 rule recip_blastx_viral:
     input:
         unann_transcripts = 'output/trinotate/sorted/unann_transcripts.fasta',
-        gi_list = 'data/gi_lists/virus.gi.txt'
+        taxid_list = 'data/species_virus_taxids.txt'
     output:
         blastx_res = 'output/recip_blast/viral_blastx/transcriptome_viral_blastx.outfmt3'
     params:
-        blast_db = 'bin/db/blastdb/nr/nr'
+        blast_db = 'bin/db/blast_db/nr/nr'
     threads:
         50
     log:
@@ -129,10 +128,11 @@ rule recip_blastx_viral:
         'blastx '
         '-query {input.unann_transcripts} '
         '-db {params.blast_db} '
-        '-gilist {input.gi_list} '
+        '-taxidlist {input.taxid_list} '
         '-num_threads {threads} '
         '-evalue 1e-05 '
-        '-outfmt "6 std salltitles" > {output.blastx_res} '
+        '-max_target_seqs 1 '
+        '-outfmt "6 std staxids salltitles" > {output.blastx_res} '
         '2> {log}'
 
 rule filter_unann_transcripts:
@@ -206,8 +206,8 @@ rule trinotate:
 ##make plot of busco summaries
 rule plot_busco:
     input:
-        ss = expand('output/busco/{filter}/short_summary.specific.endopterygota_odb10.{filter}.txt',
-            filter=['expression', 'length'])
+        ss = expand('output/busco/{filter_status}/short_summary.specific.endopterygota_odb10.{filter_status}.txt',
+            filter_status=['expression', 'length', 'unfiltered'])
     output:
         busco_plot = 'output/busco/short_summaries/busco_figure.png'
     params:
@@ -224,7 +224,7 @@ rule plot_busco:
 
 ##busco run on both length-filtered (fasta with longest isoform per gene) and expression-filtered (fasta with most highly expressed isoform per gene) separately
 ##running on raw Trinity.fasta gives high duplication due to each gene having multiple isoforms
-rule busco:
+rule filtered_busco:
     input:
         filtered_fasta = 'output/trinity_filtered_isoforms/isoforms_by_{filter}.fasta'
     output:
@@ -252,32 +252,34 @@ rule busco:
         '-f '
         '&> {log} '
 
-##different assembly quality metrics - don't worry about
-##doesn't seem to be actively maintained anymore
-rule transrate:
+rule unfiltered_busco:
     input:
-        transcriptome = 'output/trinity/Trinity.fasta',
-        left = expand('output/bbduk_trim/{sample}_r1.fq.gz', sample=all_samples),
-        right = expand('output/bbduk_trim/{sample}_r2.fq.gz', sample=all_samples)
+        unfiltered_fasta = 'output/trinity/Trinity.fasta'
     output:
-        'output/transrate/Trinity/contigs.csv'
+        'output/busco/unfiltered/short_summary.specific.endopterygota_odb10.unfiltered.txt'
     log:
-        'output/logs/transrate.log'
+        str(pathlib2.Path(resolve_path('output/logs/'),
+                            'busco_unfiltered.log'))
     params:
-        left = lambda wildcards, input: ','.join(sorted(set(input.left))),
-        right = lambda wildcards, input: ','.join(sorted(set(input.right))),
-        outdir = 'output/transrate/'
+        wd = 'output/busco',
+        outdir = 'unfiltered',
+        unfiltered_fasta = lambda wildcards, input: resolve_path(input.unfiltered_fasta)
+    singularity:
+        busco_container
     threads:
-        50
+        20
     shell:
-        'bin/transrate/transrate '
-        '--assembly {input.transcriptome} '
-        '--left {params.left} '
-        '--right {params.right} '
-        '--output {params.outdir} '
-        '--threads {threads} '
-        '--loglevel error '
-        '&> {log}'
+        'cd {params.wd} || exit 1 ; '
+        'busco '
+        '--force '
+        '--in {params.unfiltered_fasta} '
+        '--out {params.outdir} '
+        '--lineage endopterygota_odb10 '
+        '--cpu {threads} '
+        '--augustus_species tribolium '
+        '--mode transcriptome '
+        '-f '
+        '&> {log} '
 
 ##run on length & expression fil. to see whether this decreases multimapping
 ##can also use to justify Salmon mapping onto length-filtered
