@@ -33,9 +33,11 @@ bbduk_adapters = '/adapters.fa'
 #containers
 bbduk_container = 'shub://TomHarrop/singularity-containers:bbmap_38.00'
 busco_container = 'docker://ezlabgva/busco:v4.0.2_cv1'
-tidyverse_container = 'shub://TomHarrop/singularity-containers:r_3.5.0'
-trinity_container = 'docker://trinityrnaseq/trinityrnaseq'
+tidyverse_container = 'docker://rocker/tidyverse:4.1.0'
+trinity_container = 'docker://trinityrnaseq/trinityrnaseq:2.11.0'
 trinotate_container = 'shub://TomHarrop/trinotate_pipeline:v0.0.12'
+
+tom_tidyverse_container = 'shub://TomHarrop/singularity-containers:r_3.5.0'
 
 #########
 # RULES #
