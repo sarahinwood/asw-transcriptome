@@ -42,8 +42,8 @@ my_size_ratio <- 1
 my_species <- c('expression', 'expression', 'expression', 'expression', 'length', 'length', 'length', 'length', 'unfiltered', 'unfiltered', 'unfiltered', 'unfiltered')
 my_species <- factor(my_species)
 my_species <- factor(my_species,levels(my_species)[c(length(levels(my_species)):1)]) # reorder your species here just by changing the values in the vector :
-my_percentage <- c(91.2, 0.8, 1.3, 6.7, 92.8, 0.8, 1.4, 5.0, 30.4, 65.8, 0.6, 3.2)
-my_values <- c(1938, 16, 28, 142, 1971, 16, 29, 108, 645, 1397, 12, 70)
+my_percentage <- c(93.4, 0.8, 1.5, 4.3, 95.7, 0.8, 0.8, 2.7, 30.4, 65.8, 0.6, 3.2)
+my_values <- c(1983, 18, 32, 91, 2032, 17, 18, 57, 645, 1397, 12, 70)
 
 ######################################
 ######################################

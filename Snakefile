@@ -32,12 +32,11 @@ bbduk_adapters = '/adapters.fa'
 
 #containers
 bbduk_container = 'shub://TomHarrop/singularity-containers:bbmap_38.00'
-busco_container = 'docker://ezlabgva/busco:v4.0.2_cv1'
+busco_container = 'docker://ezlabgva/busco:v5.2.1_cv1'
 tidyverse_container = 'docker://rocker/tidyverse:4.1.0'
 trinity_container = 'docker://trinityrnaseq/trinityrnaseq:2.11.0'
 trinotate_container = 'shub://TomHarrop/trinotate_pipeline:v0.0.12'
-
-tom_tidyverse_container = 'shub://TomHarrop/singularity-containers:r_3.5.0'
+blast_container= 'docker://ncbi/blast:2.12.0'
 
 #########
 # RULES #
@@ -66,9 +65,11 @@ rule recip_nr_blastx:
     output:
         blastx_res = 'output/recip_blast/nr_blastx/nr_blastx.outfmt3'
     params:
-        blast_db = 'bin/db/blast_db/nr/nr'
+        blast_db = 'bin/db/blastdb/nr/nr'
     threads:
         50
+    singularity:
+        blast_container
     log:
         'output/logs/recip_nr_blastx.log'
     shell:
@@ -88,7 +89,7 @@ rule filter_pot_viral_transcripts:
     output:
         pot_viral_transcripts = 'output/recip_blast/viral_blastx/potential_viral_transcripts.fasta'
     threads:
-        50
+        20
     singularity:
         bbduk_container
     log:
@@ -121,9 +122,11 @@ rule recip_blastx_viral:
     output:
         blastx_res = 'output/recip_blast/viral_blastx/transcriptome_viral_blastx.outfmt3'
     params:
-        blast_db = 'bin/db/blast_db/nr/nr'
+        blast_db = 'bin/db/blastdb/nr/nr'
     threads:
         50
+    singularity:
+        blast_container
     log:
         'output/logs/recip_blastx_viral.log'
     shell:
@@ -144,7 +147,7 @@ rule filter_unann_transcripts:
     output:
         unann_transcripts = 'output/trinotate/sorted/unann_transcripts.fasta'
     threads:
-        50
+        20
     singularity:
         bbduk_container
     log:
@@ -221,7 +224,7 @@ rule plot_busco:
     shell:
         'mkdir {params.ss_dir} & '
         'cp {input.ss} {params.ss_dir}/ & '
-        'python3 /busco/scripts/generate_plot.py '
+        'python3 scripts/generate_plot.py '
         '-wd {params.ss_dir}'
 
 ##busco run on both length-filtered (fasta with longest isoform per gene) and expression-filtered (fasta with most highly expressed isoform per gene) separately
