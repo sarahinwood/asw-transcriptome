@@ -53,7 +53,8 @@ rule target:
         'output/trinity_stats/bowtie2_alignment_stats.txt',
         expand('output/trinity_stats/isoforms_by_{filter}_bowtie2_alignment_stats.txt',
                 filter=['expression', 'length']),
-        'output/recip_blast/nr_blastx/nr_blastx.outfmt3'
+        'output/recip_blast/nr_blastx/nr_blastx.outfmt3',
+        'output/supertranscripts/trinity_genes.fasta'
 
 ################################################################
 ##Reciprocal blastx searching for viral annots for unann genes##
@@ -175,6 +176,31 @@ rule sort_trinotate_annots:
         'output/logs/sort_trinotate_annots.log'
     script:
         'scripts/sort_trinotate_annots.R'    
+
+##############################
+## supertranscript assembly ##
+##############################
+
+##pathlib2 to get full paths - have to cd to get output where I want
+rule supertranscripts:
+    input:
+        str(pathlib2.Path(resolve_path('/output/trinity/'), "Trinity.fasta"))
+    output:
+        'output/supertranscripts/trinity_genes.fasta'
+    params:
+        wd = 'output/supertranscripts'
+    log:
+        str(pathlib2.Path(resolve_path('output/logs/'), 'supertranscripts.log'))
+    singularity:
+        trinity_container
+    threads:
+        20
+    shell:
+        'cd {params.wd} || exit 1 ; '
+        '/usr/local/bin/trinityrnaseq/Analysis/SuperTranscripts/Trinity_gene_splice_modeler.py '
+        '--trinity_fasta {input} '
+        '--incl_malign '
+        '&> {log}'
 
 #######################################
 ##Transcriptome assembled & annotated##
