@@ -37,6 +37,7 @@ tidyverse_container = 'docker://rocker/tidyverse:4.1.0'
 trinity_container = 'docker://trinityrnaseq/trinityrnaseq:2.11.0'
 trinotate_container = 'shub://TomHarrop/trinotate_pipeline:v0.0.12'
 blast_container= 'docker://ncbi/blast:2.12.0'
+kraken_container = 'docker://staphb/kraken2:2.1.2-no-db'
 
 #########
 # RULES #
@@ -44,16 +45,20 @@ blast_container= 'docker://ncbi/blast:2.12.0'
 
 rule target:
     input:
+    # read QC and kraken for contamination detection
+        'output/fastqc',
+        expand('output/kraken/kraken_{sample}_out.txt', sample=all_samples),
         expand('output/busco/{filter}/short_summary.specific.endopterygota_odb10.{filter}.txt',
                 filter=['expression', 'length']),
+    # assembly QC
         'output/busco/short_summaries/busco_figure.png',
-        'output/fastqc',
         'output/trinity_stats/stats.txt',
         'output/trinity_stats/xn50.out.txt',
         'output/trinity_stats/bowtie2_alignment_stats.txt',
         expand('output/trinity_stats/isoforms_by_{filter}_bowtie2_alignment_stats.txt',
                 filter=['expression', 'length']),
-        'output/recip_blast/nr_blastx/nr_blastx.outfmt3',
+    # transcriptome annotation
+        #'output/recip_blast/nr_blastx/nr_blastx.outfmt3',
         'output/supertranscripts/trinity_genes.fasta'
 
 ################################################################
@@ -562,6 +567,31 @@ rule bbmerge:
         'ihist={output.ihist} '
         'verystrict=t '
         'adapters={params.adapters} '
+        '&> {log}'
+
+rule kraken:
+    input:
+        r1 = 'output/bbduk_trim/{sample}_r1.fq.gz',
+        r2 = 'output/bbduk_trim/{sample}_r2.fq.gz',
+        db = 'bin/db/kraken_std'
+    output:
+        out = 'output/kraken/kraken_{sample}_out.txt',
+        report = 'output/kraken/reports/kraken_{sample}_report.txt'
+    log:
+        'output/logs/kraken/kraken_{sample}.log'
+    threads:
+        20
+    singularity:
+        kraken_container
+    shell:
+        'kraken2 '
+        '--threads {threads} '
+        '--db {input.db} '
+        '--paired '
+        '--output {output.out} '
+        '--report {output.report} '
+        '--use-names '
+        '{input.r1} {input.r2} '
         '&> {log}'
 
 rule fastqc:
